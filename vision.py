@@ -153,14 +153,14 @@ def main(args):
                 mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
            else:
               mid_px = (targets[0][4] + targets[0][3]) / 2.
-              print "Y mismatch"
+              #print "Y mismatch"
            mid_px = mid_px - MIDSCREEN
         elif len(targets) == 1:
            mid_px = (targets[0][4] + targets[0][3]) / 2.
            mid_px = mid_px - MIDSCREEN
 		
 
-	print mid_px
+	#print mid_px
         s.sendto(str(mid_px), (IP, PORT))
 
         if not args.novideo:
