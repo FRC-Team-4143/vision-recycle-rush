@@ -1,5 +1,6 @@
 #!/bin/bash
-#sudo bash -c 'echo -1 > /sys/module/usbcore/parameters/autosuspend'
+bash -c 'echo -1 > /sys/module/usbcore/parameters/autosuspend'
+cd /home/ubuntu/vision-recycle-rush
 echo "Vision program starting..."
 
 until ./vision.py -c 0 -v ; do
