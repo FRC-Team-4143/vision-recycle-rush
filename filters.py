@@ -1,6 +1,6 @@
-low_h = 76
-high_h = 161
-low_s = 50
-high_s = 192
-low_v = 172
+low_h = 28
+high_h = 66
+low_s = 0
+high_s = 23
+low_v = 230 
 high_v = 255

@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import division
 import cv2
@@ -16,6 +17,8 @@ TAPE_WIDTH = 7 # in
 RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
 IP = "10.4.13.2"
 PORT = 4143
+MIDSCREEN = 450.0
+Y_DIFF = 100
 
 
 def calc_distance(target, target_px, total_px):
@@ -128,28 +131,34 @@ def main(args):
         for shape in contours:
             x, y, w, h, box = calc_bbox(shape)
             area = w * h
-            if area < 0.05 * img_copy.shape[0] * img_copy.shape[1]:
+            if area < 0.01 * img_copy.shape[0] * img_copy.shape[1]:
                 continue
             distance = calc_distance(TAPE_WIDTH, w, img_copy.shape[1])
             angle = calc_angle_x(x, img_copy.shape[1])
-            targets.append((area, distance, angle, x, x+h))
+            targets.append((area, distance, angle, x, x+h, y))
             if not args.novideo:
                 cv2.drawContours(img_copy,[box],0,(0,255,0),2)
                 cv2.putText(img_copy, 'Distance: {:.3}"'.format(distance),(int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
                 cv2.putText(img_copy, 'Angle: {:.3} deg'.format(angle),(int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
 
-        if targets > 2:
+        if len(targets) > 2:
             targets.sort(key=lambda tup: tup[0], reverse=True)
-        elif targets < 2:
-            continue
 
-        mid_px = 0
+        mid_px = 1.0
 	if len(targets) > 1:
-           if targets[0][2] < targets[1][2]:
-             mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
+           if abs(targets[0][5] - targets[1][5]) <= Y_DIFF: 
+              if targets[0][2] < targets[1][2]:
+                mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
+              else:
+                mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
            else:
-             mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
-           mid_px = mid_px - 400
+              mid_px = (targets[0][4] + targets[0][3]) / 2.
+              print "Y mismatch"
+           mid_px = mid_px - MIDSCREEN
+        elif len(targets) == 1:
+           mid_px = (targets[0][4] + targets[0][3]) / 2.
+           mid_px = mid_px - MIDSCREEN
+		
 
 	print mid_px
         s.sendto(str(mid_px), (IP, PORT))
