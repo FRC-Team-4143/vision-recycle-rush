@@ -1,13 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from __future__ import division
+from collections import namedtuple
 import cv2
 from cv2 import cv
 import math
-from matplotlib import pyplot as plt
 import numpy as np
 import socket
-from filters import low_h, high_h, low_s, high_s, low_v, high_v
+import filters
 
 VIEW_ANGLE = 60 # View angle fo camera, 49.4 for Axis m1011, 64 for m1013, 51.7 for 206, 52 for HD3000 square, 60 for HD3000 640x480
 TOTE_WIDTH = 26.9 # in
@@ -18,8 +18,13 @@ RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
 IP = "10.41.43.2"
 IP2 = "10.4.13.2"
 PORT = 4143
-MIDSCREEN = 450.0
+SCREENWIDTH = 640
+MIDSCREEN = SCREENWIDTH / 2
 Y_DIFF = 100  # found boxes must be within this many pixels for tote find
+AREA_THRESHOLD = 0.01 # percent of image area
+EDGE_THRESHOLD = 5 # number of px from edge to call it filled up
+
+Target = namedtuple("Target", "area left right center")
 
 
 def calc_distance(target, target_px, total_px):
@@ -70,23 +75,10 @@ def ratio(width, height):
     return is_long, best_score, stacks
 
 def calc_bbox(contour):
-    rect = cv2.minAreaRect(contour)
-    x, y = rect[0]
-    if rect[2] < -45:
-        h, w = rect[1]
-    else:
-        w, h = rect[1]
-    box = cv.BoxPoints(rect)
-    box = np.int0(box)
-    return x, y, w, h, box
+    x,y,w,h = cv2.boundingRect(contour)
+    return x, y, w, h
 
 def main(args):
-    global low_h
-    global low_s
-    global low_v
-    global high_h
-    global high_s
-    global high_v
     if args.test:
         cv2.namedWindow('Control', cv2.WINDOW_AUTOSIZE)
         cv.CreateTrackbar("LowH", "Control", 0, 255, nothing)
@@ -96,86 +88,100 @@ def main(args):
         cv.CreateTrackbar("LowV", "Control", 0, 255, nothing)
         cv.CreateTrackbar("HighV", "Control", 0, 255, nothing)
 
-        cv2.setTrackbarPos("LowH", "Control", low_h)
-        cv2.setTrackbarPos("HighH", "Control", high_h)
-        cv2.setTrackbarPos("LowS", "Control", low_s)
-        cv2.setTrackbarPos("HighS", "Control", high_s)
-        cv2.setTrackbarPos("LowV", "Control", low_v)
-        cv2.setTrackbarPos("HighV", "Control", high_v)
+        cv2.setTrackbarPos("LowH", "Control", filters.low_h)
+        cv2.setTrackbarPos("HighH", "Control", filters.high_h)
+        cv2.setTrackbarPos("LowS", "Control", filters.low_s)
+        cv2.setTrackbarPos("HighS", "Control", filters.high_s)
+        cv2.setTrackbarPos("LowV", "Control", filters.low_v)
+        cv2.setTrackbarPos("HighV", "Control", filters.high_v)
 
     if args.filename:
         img = cv2.imread(args.filename, cv2.CV_LOAD_IMAGE_COLOR)
     elif args.camera:
         cap = cv2.VideoCapture(int(args.camera) if len(args.camera) < 3 else args.camera)
+    else:
+        raise RuntimeError("Please supply an image or a camera.")
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     while True:
+        if args.test:
+            filters.low_h = cv2.getTrackbarPos("LowH", "Control")
+            filters.high_h = cv2.getTrackbarPos("HighH", "Control")
+            filters.low_s = cv2.getTrackbarPos("LowS", "Control")
+            filters.high_s = cv2.getTrackbarPos("HighS", "Control")
+            filters.low_v = cv2.getTrackbarPos("LowV", "Control")
+            filters.high_v = cv2.getTrackbarPos("HighV", "Control")
+
         if args.filename:
             img_copy = img.copy()
         elif args.camera:
             ret, img_copy = cap.read()
 
-        if args.test:
-            low_h = cv2.getTrackbarPos("LowH", "Control")
-            high_h = cv2.getTrackbarPos("HighH", "Control")
-            low_s = cv2.getTrackbarPos("LowS", "Control")
-            high_s = cv2.getTrackbarPos("HighS", "Control")
-            low_v = cv2.getTrackbarPos("LowV", "Control")
-            high_v = cv2.getTrackbarPos("HighV", "Control")
-
-        filtered = hsv_filter(img_copy, low_h, high_h, low_s, high_s, low_v, high_v)
+        filtered = hsv_filter(img_copy, filters.low_h, filters.high_h,
+                              filters.low_s, filters.high_s, filters.low_v,
+                              filters.high_v)
         filtered = open_close(filtered)
-        clone = filtered.copy()
-        contours, hierarchy = cv2.findContours(clone, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(filtered.copy(),
+                                               cv2.RETR_EXTERNAL,
+                                               cv2.CHAIN_APPROX_SIMPLE)
 
         targets = list()
         for shape in contours:
-            x, y, w, h, box = calc_bbox(shape)
-            area = w * h
-            if area < 0.01 * img_copy.shape[0] * img_copy.shape[1]:
+            area = cv2.contourArea(shape)
+            if area < AREA_THRESHOLD * img_copy.shape[0] * img_copy.shape[1]:
                 continue
-            distance = calc_distance(TAPE_WIDTH, w, img_copy.shape[1])
-            angle = calc_angle_x(x, img_copy.shape[1])
-            targets.append((area, distance, angle, x, x+h, y))
+            x, y, w, h = calc_bbox(shape)
+            targets.append(Target(area, x, x+w, (x+w/2, y+h/2)))
             if not args.novideo:
-                cv2.drawContours(img_copy,[box],0,(0,255,0),2)
-                cv2.putText(img_copy, 'Distance: {:.3}"'.format(distance),(int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
-                cv2.putText(img_copy, 'Angle: {:.3} deg'.format(angle),(int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
+                distance = calc_distance(TAPE_WIDTH, w, img_copy.shape[1])
+                angle = calc_angle_x(x, img_copy.shape[1])
+                cv2.rectangle(img_copy,(x,y),(x+w,y+h),(0,255,0),2)
+                cv2.putText(img_copy, 'Distance: {:.3}"'.format(distance),
+                            (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                            (0,0,0))
+                cv2.putText(img_copy, 'Angle: {:.3} deg'.format(angle),
+                            (int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                            (0,0,0))
 
-        if len(targets) > 2:
-            targets.sort(key=lambda tup: tup[0], reverse=True)
-
-        mid_px = 1.0
-	if len(targets) > 1:
-           if abs(targets[0][5] - targets[1][5]) <= Y_DIFF: 
-              if targets[0][2] < targets[1][2]:
-                mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
-              else:
-                mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
-           else:  # if y test fails just send center of biggest box
-              mid_px = (targets[0][4] + targets[0][3]) / 2.
-              #print "Y mismatch"
-           mid_px = mid_px - MIDSCREEN
+        mid_x = 1.0
+        mid_y = 0
+        if len(targets) > 1:
+            targets.sort(key=lambda tup: tup.area, reverse=True)
+            if abs(targets[0].center[1] - targets[1].center[1]) <= Y_DIFF:
+                if targets[0].left < targets[1].left:
+                    if targets[0].left < EDGE_THRESHOLD and targets[1].right > SCREENWIDTH - EDGE_THRESHOLD:
+                        mid_x = MIDSCREEN
+                    else:
+                        mid_x = (targets[1].left - targets[0].right) / 2 + targets[0].right
+                else:
+                    if targets[1].left < EDGE_THRESHOLD and targets[0].right > SCREENWIDTH - EDGE_THRESHOLD:
+                        mid_x = MIDSCREEN
+                    else:
+                        mid_x = (targets[0].left - targets[1].right) / 2 + targets[1].right
+                mid_y = sum(i.center[1] for i in targets[:2]) / 2
+            else:  # if y test fails just send center of biggest box
+                mid_x, mid_y = targets[0].center
+                # print "Y mismatch"
+            mid_x = mid_x - MIDSCREEN
         elif len(targets) == 1:  # only one target found. send center of it
-           mid_px = (targets[0][4] + targets[0][3]) / 2.
-           mid_px = mid_px - MIDSCREEN
-		
+            mid_x, mid_y = targets[0].center
+            mid_x = mid_x - MIDSCREEN
 
-	#print mid_px
-	try:
-           s.sendto(str(mid_px), (IP, PORT))
+
+        #print mid_x
+        try:
+            s.sendto(str(mid_x), (IP, PORT))
         except:
-           try:
-              s.sendto(str(mid_px), (IP2, PORT))
-           except:
-              pass
+            try:
+                s.sendto(str(mid_x), (IP, PORT))
+            except:
+                pass
 
         if not args.novideo:
+            cv2.circle(img_copy, (int(mid_x+MIDSCREEN), int(mid_y)), 10, (0,0,255), -1)
             cv2.drawContours(img_copy, contours, -1, (0, 0, 255))
             cv2.imshow("Original", img_copy)
             cv2.imshow("Filtered", filtered)
-
-        if not args.novideo:
             key = cv2.waitKey(30)
             if args.test and (key == 83 or key == 115):
                 save = True
@@ -189,12 +195,12 @@ def main(args):
 
     if args.test and save:
         with open("filters.py", 'w') as f:
-            f.write("low_h = {}\n".format(low_h))
-            f.write("high_h = {}\n".format(high_h))
-            f.write("low_s = {}\n".format(low_s))
-            f.write("high_s = {}\n".format(high_s))
-            f.write("low_v = {}\n".format(low_v))
-            f.write("high_v = {}\n".format(high_v))
+            f.write("low_h = {}\n".format(filters.low_h))
+            f.write("high_h = {}\n".format(filters.high_h))
+            f.write("low_s = {}\n".format(filters.low_s))
+            f.write("high_s = {}\n".format(filters.high_s))
+            f.write("low_v = {}\n".format(filters.low_v))
+            f.write("high_v = {}\n".format(filters.high_v))
 
     cv2.destroyAllWindows()
 

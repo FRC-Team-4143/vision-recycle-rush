@@ -1,5 +1,10 @@
 #!/bin/bash
-bash -c 'echo -1 > /sys/module/usbcore/parameters/autosuspend'
+echo -1 > /sys/kernel/debug/tegra_hdmi/hotplug
+echo 4 > /sys/class/graphics/fb0/blank
+echo -1 > /sys/module/usbcore/parameters/autosuspend
+
+sleep 2
+
 cd /home/ubuntu/vision-recycle-rush
 echo "Vision program starting..."
 
