@@ -26,17 +26,11 @@ def nothing(x):
     """Stub function for sliders."""
     pass
 
-def hsv_filter(image):
-    low_h = cv2.getTrackbarPos("LowH", "Control")
-    high_h = cv2.getTrackbarPos("HighH", "Control")
-    low_s = cv2.getTrackbarPos("LowS", "Control")
-    high_s = cv2.getTrackbarPos("HighS", "Control")
-    low_v = cv2.getTrackbarPos("LowV", "Control")
-    high_v = cv2.getTrackbarPos("HighV", "Control")
+def hsv_filter(image, low_h, high_h, low_s, high_s, low_v, high_v):
     lower = np.array([low_h, low_s, low_v])
     upper = np.array([high_h, high_s, high_v])
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    return cv2.inRange(hsv, lower, upper), (low_h, high_h, low_s, high_s, low_v, high_v)
+    return cv2.inRange(hsv, lower, upper)
 
 def open_close(image, size=5):
     image = cv2.morphologyEx(image, cv2.MORPH_OPEN, np.ones((size, size)))
@@ -67,7 +61,7 @@ def ratio(width, height):
     return is_long, best_score, stacks
 
 def calc_bbox(contour):
-    rect = cv2.minAreaRect(shape)
+    rect = cv2.minAreaRect(contour)
     x, y = rect[0]
     if rect[2] < -45:
         h, w = rect[1]
@@ -77,28 +71,45 @@ def calc_bbox(contour):
     box = np.int0(box)
     return x, y, w, h, box
 
-def main():
-    cv2.namedWindow('Control', cv2.WINDOW_AUTOSIZE)
-    cv.CreateTrackbar("LowH", "Control", 0, 255, nothing)
-    cv.CreateTrackbar("HighH", "Control", 0, 255, nothing)
-    cv.CreateTrackbar("LowS", "Control", 0, 255, nothing)
-    cv.CreateTrackbar("HighS", "Control", 0, 255, nothing)
-    cv.CreateTrackbar("LowV", "Control", 0, 255, nothing)
-    cv.CreateTrackbar("HighV", "Control", 0, 255, nothing)
+def main(args):
+    if args.test:
+        cv2.namedWindow('Control', cv2.WINDOW_AUTOSIZE)
+        cv.CreateTrackbar("LowH", "Control", 0, 255, nothing)
+        cv.CreateTrackbar("HighH", "Control", 0, 255, nothing)
+        cv.CreateTrackbar("LowS", "Control", 0, 255, nothing)
+        cv.CreateTrackbar("HighS", "Control", 0, 255, nothing)
+        cv.CreateTrackbar("LowV", "Control", 0, 255, nothing)
+        cv.CreateTrackbar("HighV", "Control", 0, 255, nothing)
 
-    cv2.setTrackbarPos("LowH", "Control", 0)
-    cv2.setTrackbarPos("HighH", "Control", 40)
-    cv2.setTrackbarPos("LowS", "Control", 60)
-    cv2.setTrackbarPos("HighS", "Control", 255)
-    cv2.setTrackbarPos("LowV", "Control", 50)
-    cv2.setTrackbarPos("HighV", "Control", 255)
+        cv2.setTrackbarPos("LowH", "Control", 0)
+        cv2.setTrackbarPos("HighH", "Control", 40)
+        cv2.setTrackbarPos("LowS", "Control", 60)
+        cv2.setTrackbarPos("HighS", "Control", 255)
+        cv2.setTrackbarPos("LowV", "Control", 50)
+        cv2.setTrackbarPos("HighV", "Control", 255)
+    else:
+        from filters import low_h, high_h, low_s, high_s, low_v, high_v
 
-    img = cv2.imread('SampleImages/normal_wtargets.jpg', cv2.CV_LOAD_IMAGE_COLOR)
-    filters = ()
+    if args.filename:
+        img = cv2.imread(args.filename, cv2.CV_LOAD_IMAGE_COLOR)
+    elif args.camera:
+        cap = cv2.VideoCapture(int(args.camera) if len(args.camera < 3) else args.camera)
 
-    while cv2.waitKey(30) != 27:
-        img_copy = img.copy()
-        filtered, filters = hsv_filter(img_copy)
+    while True:
+        if args.filename:
+            img_copy = img.copy()
+        elif args.camera:
+            ret, img_copy = cap.read()
+
+        if args.test:
+            low_h = cv2.getTrackbarPos("LowH", "Control")
+            high_h = cv2.getTrackbarPos("HighH", "Control")
+            low_s = cv2.getTrackbarPos("LowS", "Control")
+            high_s = cv2.getTrackbarPos("HighS", "Control")
+            low_v = cv2.getTrackbarPos("LowV", "Control")
+            high_v = cv2.getTrackbarPos("HighV", "Control")
+
+        filtered = hsv_filter(img_copy, low_h, high_h, low_s, high_s, low_v, high_v)
         filtered = open_close(filtered)
         clone = filtered.copy()
         contours, hierarchy = cv2.findContours(clone, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -120,9 +131,33 @@ def main():
         cv2.imshow("Original", img_copy)
         cv2.imshow("Filtered", filtered)
 
-    print("Hue: {0[0]} to {0[1]}\n"
-          "Saturation: {0[2]} to {0[3]}\n"
-          "Value: {0[4]} to {0[5]}".format(filters))
+        if args.test and cv2.waitKey(30) == 27:
+            break
+
+    if args.camera:
+        cap.release()
+
+    if args.test:
+        with open("filters.py", 'w') as f:
+            f.write("low_h = {}\n".format(low_h))
+            f.write("high_h = {}\n".format(high_h))
+            f.write("low_s = {}\n".format(low_s))
+            f.write("high_s = {}\n".format(high_s))
+            f.write("low_v = {}\n".format(low_v))
+            f.write("high_v = {}\n".format(high_v))
+
+    cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    parser = argparse.ArgumentParser()
+    action = parser.add_mutually_exclusive_group(required=True)
+    action.add_argument("-f", "--filename",
+                        help="path to an image to process")
+    action.add_argument("-c", "--camera",
+                        help="camera number or address to process")
+    parser.add_argument("-t", "--test", action="store_true",
+                        help="test mode to help pick parameters")
+    args = parser.parse_args()
+    main(args)
