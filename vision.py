@@ -6,7 +6,7 @@ import math
 from matplotlib import pyplot as plt
 import numpy as np
 
-VIEW_ANGLE = 64 # View angle fo camera, 49.4 for Axis m1011, 64 for m1013, 51.7 for 206, 52 for HD3000 square, 60 for HD3000 640x480
+VIEW_ANGLE = 60 # View angle fo camera, 49.4 for Axis m1011, 64 for m1013, 51.7 for 206, 52 for HD3000 square, 60 for HD3000 640x480
 TOTE_WIDTH = 26.9 # in
 TOTE_DEPTH = 16.9 # in
 TOTE_HEIGHT = 12.1 # in
@@ -15,7 +15,7 @@ RATIO_THRESHOLD = 0.1 # percent difference from actual ratio to calculated ratio
 
 def calc_distance(target_width, target_width_px, total_width_px):
     """Calculates the distance to the target (units equal to those passed in)."""
-    return target_width * total_width_px / (2 * target_width_px * math.tan(VIEW_ANGLE * math.pi / 180))
+    return target_width * total_width_px / (2 * target_width_px * math.tan(VIEW_ANGLE / 2 * math.pi / 180))
 
 def calc_angle_x(center_x, res_x):
     """Calculates the angle to rotate to center the target (degrees)."""
@@ -32,7 +32,7 @@ def hsv_filter(image, low_h, high_h, low_s, high_s, low_v, high_v):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     return cv2.inRange(hsv, lower, upper)
 
-def open_close(image, size=5):
+def open_close(image, size=10):
     image = cv2.morphologyEx(image, cv2.MORPH_OPEN, np.ones((size, size)))
     return cv2.morphologyEx(image, cv2.MORPH_CLOSE, np.ones((size, size)))
 
@@ -93,7 +93,7 @@ def main(args):
     if args.filename:
         img = cv2.imread(args.filename, cv2.CV_LOAD_IMAGE_COLOR)
     elif args.camera:
-        cap = cv2.VideoCapture(int(args.camera) if len(args.camera < 3) else args.camera)
+        cap = cv2.VideoCapture(int(args.camera) if len(args.camera) < 3 else args.camera)
 
     while True:
         if args.filename:
@@ -131,13 +131,18 @@ def main(args):
         cv2.imshow("Original", img_copy)
         cv2.imshow("Filtered", filtered)
 
-        if args.test and cv2.waitKey(30) == 27:
+        key = cv2.waitKey(30)
+        if args.test and (key == 83 or key == 115):
+            save = True
+            break
+        if key == 27:
+            save = False
             break
 
     if args.camera:
         cap.release()
 
-    if args.test:
+    if args.test and save:
         with open("filters.py", 'w') as f:
             f.write("low_h = {}\n".format(low_h))
             f.write("high_h = {}\n".format(high_h))
