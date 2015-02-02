@@ -5,6 +5,7 @@ from cv2 import cv
 import math
 from matplotlib import pyplot as plt
 import numpy as np
+from filters import low_h, high_h, low_s, high_s, low_v, high_v
 
 VIEW_ANGLE = 60 # View angle fo camera, 49.4 for Axis m1011, 64 for m1013, 51.7 for 206, 52 for HD3000 square, 60 for HD3000 640x480
 TOTE_WIDTH = 26.9 # in
@@ -81,14 +82,12 @@ def main(args):
         cv.CreateTrackbar("LowV", "Control", 0, 255, nothing)
         cv.CreateTrackbar("HighV", "Control", 0, 255, nothing)
 
-        cv2.setTrackbarPos("LowH", "Control", 0)
-        cv2.setTrackbarPos("HighH", "Control", 40)
-        cv2.setTrackbarPos("LowS", "Control", 60)
-        cv2.setTrackbarPos("HighS", "Control", 255)
-        cv2.setTrackbarPos("LowV", "Control", 50)
-        cv2.setTrackbarPos("HighV", "Control", 255)
-    else:
-        from filters import low_h, high_h, low_s, high_s, low_v, high_v
+        cv2.setTrackbarPos("LowH", "Control", low_h)
+        cv2.setTrackbarPos("HighH", "Control", high_h)
+        cv2.setTrackbarPos("LowS", "Control", low_s)
+        cv2.setTrackbarPos("HighS", "Control", high_s)
+        cv2.setTrackbarPos("LowV", "Control", low_v)
+        cv2.setTrackbarPos("HighV", "Control", high_v)
 
     if args.filename:
         img = cv2.imread(args.filename, cv2.CV_LOAD_IMAGE_COLOR)
