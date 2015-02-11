@@ -11,12 +11,12 @@ VIEW_ANGLE = 60 # View angle fo camera, 49.4 for Axis m1011, 64 for m1013, 51.7 
 TOTE_WIDTH = 26.9 # in
 TOTE_DEPTH = 16.9 # in
 TOTE_HEIGHT = 12.1 # in
-RATIO_THRESHOLD = 0.1 # percent difference from actual ratio to calculated ratio
+RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
 
 
-def calc_distance(target_width, target_width_px, total_width_px):
+def calc_distance(target, target_px, total_px):
     """Calculates the distance to the target (units equal to those passed in)."""
-    return target_width * total_width_px / (2 * target_width_px * math.tan(VIEW_ANGLE / 2 * math.pi / 180))
+    return target * total_px / (2 * target_px * math.tan(VIEW_ANGLE / 2 * math.pi / 180))
 
 def calc_angle_x(center_x, res_x):
     """Calculates the angle to rotate to center the target (degrees)."""
@@ -118,8 +118,7 @@ def main(args):
             is_long, score, num_totes = ratio(w, h)
             if score > RATIO_THRESHOLD:
                 continue
-            width = TOTE_WIDTH if is_long else TOTE_DEPTH
-            distance = calc_distance(width, w, img_copy.shape[1])
+            distance = calc_distance(TOTE_HEIGHT, h, img_copy.shape[0])
             angle = calc_angle_x(x, img_copy.shape[1])
             cv2.drawContours(img_copy,[box],0,(0,255,0),2)
             cv2.putText(img_copy, 'Distance: {:.3}"'.format(distance),(int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0))
