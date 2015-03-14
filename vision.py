@@ -14,7 +14,7 @@ TOTE_DEPTH = 16.9 # in
 TOTE_HEIGHT = 12.1 # in
 TAPE_WIDTH = 7 # in
 RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
-IP = "20.20.41.43"
+IP = "10.4.13.2"
 PORT = 4143
 
 
@@ -143,11 +143,15 @@ def main(args):
         elif targets < 2:
             continue
 
-        if targets[0][2] < targets[1][2]:
-            mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
-        else:
-            mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
+        mid_px = 0
+	if len(targets) > 1:
+           if targets[0][2] < targets[1][2]:
+             mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
+           else:
+             mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
+           mid_px = mid_px - 400
 
+	print mid_px
         s.sendto(str(mid_px), (IP, PORT))
 
         if not args.novideo:
