@@ -148,7 +148,7 @@ def main(args):
         else:
             mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
 
-        s.send(mid_px, (IP, HOST))
+        s.sendto(str(mid_px), (IP, PORT))
 
         if not args.novideo:
             cv2.drawContours(img_copy, contours, -1, (0, 0, 255))
