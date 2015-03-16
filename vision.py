@@ -15,10 +15,11 @@ TOTE_DEPTH = 16.9 # in
 TOTE_HEIGHT = 12.1 # in
 TAPE_WIDTH = 7 # in
 RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
-IP = "10.4.13.2"
+IP = "10.41.43.2"
+IP2 = "10.4.13.2"
 PORT = 4143
 MIDSCREEN = 450.0
-Y_DIFF = 100
+Y_DIFF = 100  # found boxes must be within this many pixels for tote find
 
 
 def calc_distance(target, target_px, total_px):
@@ -151,17 +152,23 @@ def main(args):
                 mid_px = (targets[1][3] - targets[0][4]) / 2. + targets[0][4]
               else:
                 mid_px = (targets[0][3] - targets[1][4]) / 2. + targets[1][4]
-           else:
+           else:  # if y test fails just send center of biggest box
               mid_px = (targets[0][4] + targets[0][3]) / 2.
               #print "Y mismatch"
            mid_px = mid_px - MIDSCREEN
-        elif len(targets) == 1:
+        elif len(targets) == 1:  # only one target found. send center of it
            mid_px = (targets[0][4] + targets[0][3]) / 2.
            mid_px = mid_px - MIDSCREEN
 		
 
 	#print mid_px
-        s.sendto(str(mid_px), (IP, PORT))
+	try:
+           s.sendto(str(mid_px), (IP, PORT))
+        except:
+           try:
+              s.sendto(str(mid_px), (IP2, PORT))
+           except:
+              pass
 
         if not args.novideo:
             cv2.drawContours(img_copy, contours, -1, (0, 0, 255))
