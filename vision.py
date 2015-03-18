@@ -18,7 +18,8 @@ RATIO_THRESHOLD = 0.2 # percent difference from actual ratio to calculated ratio
 IP = "10.41.43.2"
 IP2 = "10.4.13.2"
 PORT = 4143
-MIDSCREEN = 450.0
+SCREENWIDTH = 640
+MIDSCREEN = SCREENWIDTH / 2
 Y_DIFF = 100  # found boxes must be within this many pixels for tote find
 AREA_THRESHOLD = 0.01 # percent of image area
 
@@ -73,15 +74,8 @@ def ratio(width, height):
     return is_long, best_score, stacks
 
 def calc_bbox(contour):
-    rect = cv2.minAreaRect(contour)
-    x, y = rect[0]
-    if rect[2] < -45:
-        h, w = rect[1]
-    else:
-        w, h = rect[1]
-    box = cv.BoxPoints(rect)
-    box = np.int0(box)
-    return x, y, w, h, box
+    x,y,w,h = cv2.boundingRect(contour)
+    return x, y, w, h
 
 def main(args):
     if args.test:
@@ -135,12 +129,12 @@ def main(args):
             area = cv2.contourArea(shape)
             if area < AREA_THRESHOLD * img_copy.shape[0] * img_copy.shape[1]:
                 continue
-            x, y, w, h, box = calc_bbox(shape)
-            targets.append(Target(area, x-w/2, x+w/2, (x, y)))
+            x, y, w, h = calc_bbox(shape)
+            targets.append(Target(area, x, x+w, (x+w/2, y+h/2)))
             if not args.novideo:
                 distance = calc_distance(TAPE_WIDTH, w, img_copy.shape[1])
                 angle = calc_angle_x(x, img_copy.shape[1])
-                cv2.drawContours(img_copy,[box],0,(0,255,0),2)
+                cv2.rectangle(img_copy,(x,y),(x+w,y+h),(0,255,0),2)
                 cv2.putText(img_copy, 'Distance: {:.3}"'.format(distance),
                             (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                             (0,0,0))
@@ -148,24 +142,30 @@ def main(args):
                             (int(x), int(y)+15), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                             (0,0,0))
 
-        if len(targets) > 2:
-            targets.sort(key=lambda tup: tup.area, reverse=True)
-
-        mid_x = 1 + MIDSCREEN
+        mid_x = 1.0
         mid_y = 0
         if len(targets) > 1:
+            targets.sort(key=lambda tup: tup.area, reverse=True)
             if abs(targets[0].center[1] - targets[1].center[1]) <= Y_DIFF:
-                if targets[0].left < targets[1].left:
-                    mid_x = (targets[1].left - targets[0].right) / 2. + targets[0].right
-                else:
-                    mid_x = (targets[0].left - targets[1].right) / 2. + targets[1].right
+                smallestx = SCREENWIDTH
+                largestx = 0.
+                if targets[0].left < smallestx:
+                    smallestx = targets[0].left
+                if targets[1].left < smallestx:
+                    smallestx = targets[1].left
+                if targets[0].right > largestx:
+                    largestx = targets[0].right
+                if targets[1].right > largestx:
+                    largestx = targets[1].right
+                mid_x = (smallestx + largestx) / 2.
+                mid_y = sum(i.center[1] for i in targets[:2]) / 2
             else:  # if y test fails just send center of biggest box
-                mid_x = targets[0].center[0]
-                print "Y mismatch"
-            mid_y = sum([i.center[1] for i in targets[:2]]) / len(targets[:2])
+                mid_x, mid_y = targets[0].center
+                # print "Y mismatch"
+            mid_x = mid_x - MIDSCREEN
         elif len(targets) == 1:  # only one target found. send center of it
-           mid_x, mid_y = targets[0].center
-        mid_x = mid_x - MIDSCREEN
+            mid_x, mid_y = targets[0].center
+            mid_x = mid_x - MIDSCREEN
 
 
         #print mid_x
