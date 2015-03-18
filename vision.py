@@ -22,6 +22,7 @@ SCREENWIDTH = 640
 MIDSCREEN = SCREENWIDTH / 2
 Y_DIFF = 100  # found boxes must be within this many pixels for tote find
 AREA_THRESHOLD = 0.01 # percent of image area
+EDGE_THRESHOLD = 5 # number of px from edge to call it filled up
 
 Target = namedtuple("Target", "area left right center")
 
@@ -147,17 +148,16 @@ def main(args):
         if len(targets) > 1:
             targets.sort(key=lambda tup: tup.area, reverse=True)
             if abs(targets[0].center[1] - targets[1].center[1]) <= Y_DIFF:
-                smallestx = SCREENWIDTH
-                largestx = 0.
-                if targets[0].left < smallestx:
-                    smallestx = targets[0].left
-                if targets[1].left < smallestx:
-                    smallestx = targets[1].left
-                if targets[0].right > largestx:
-                    largestx = targets[0].right
-                if targets[1].right > largestx:
-                    largestx = targets[1].right
-                mid_x = (smallestx + largestx) / 2.
+                if targets[0].left < targets[1].left:
+                    if targets[0].left < EDGE_THRESHOLD and targets[1].right > SCREENWIDTH - EDGE_THRESHOLD:
+                        mid_x = MIDSCREEN
+                    else:
+                        mid_x = (targets[1].left - targets[0].right) / 2 + targets[0].right
+                else:
+                    if targets[1].left < EDGE_THRESHOLD and targets[0].right > SCREENWIDTH - EDGE_THRESHOLD:
+                        mid_x = MIDSCREEN
+                    else:
+                        mid_x = (targets[0].left - targets[1].right) / 2 + targets[1].right
                 mid_y = sum(i.center[1] for i in targets[:2]) / 2
             else:  # if y test fails just send center of biggest box
                 mid_x, mid_y = targets[0].center
