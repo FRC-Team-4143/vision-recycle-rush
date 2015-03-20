@@ -1,5 +1,19 @@
 #!/bin/bash
-bash -c 'echo -1 > /sys/module/usbcore/parameters/autosuspend'
+
+echo -1 > /sys/module/usbcore/parameters/autosuspend
+echo -1 > /sys/kernel/debug/tegra_hdmi/hotplug
+echo 4 > /sys/class/graphics/fb0/blank
+
+uvcdynctrl --set='Exposure, Auto' 1 
+
+#uvcdynctrl --set='Exposure (Absolute)' 5 # Min
+#uvcdynctrl --set='Exposure (Absolute)' 20000 # Max
+uvcdynctrl --set='Exposure (Absolute)' 10000
+
+#uvcdynctrl --set='Brightness' 30   # Min
+#uvcdynctrl --set='Brightness' 255   # Max
+uvcdynctrl --set='Brightness' 124  
+
 cd /home/ubuntu/vision-recycle-rush
 echo "Vision program starting..."
 
