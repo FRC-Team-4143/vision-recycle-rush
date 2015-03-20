@@ -173,7 +173,7 @@ def main(args):
             s.sendto(str(mid_x), (IP, PORT))
         except:
             try:
-                s.sendto(str(mid_x), (IP2, PORT))
+                s.sendto(str(mid_x), (IP, PORT))
             except:
                 pass
 

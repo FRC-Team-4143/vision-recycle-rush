@@ -8,11 +8,11 @@ uvcdynctrl --set='Exposure, Auto' 1
 
 #uvcdynctrl --set='Exposure (Absolute)' 5 # Min
 #uvcdynctrl --set='Exposure (Absolute)' 20000 # Max
-uvcdynctrl --set='Exposure (Absolute)' 10000
+uvcdynctrl --set='Exposure (Absolute)' 10
 
 #uvcdynctrl --set='Brightness' 30   # Min
 #uvcdynctrl --set='Brightness' 255   # Max
-uvcdynctrl --set='Brightness' 124  
+uvcdynctrl --set='Brightness' 30
 
 cd /home/ubuntu/vision-recycle-rush
 echo "Vision program starting..."
